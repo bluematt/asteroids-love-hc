@@ -9,6 +9,7 @@ local Pause = {}
 
 -- Shortcuts
 local gfx = love.graphics
+local key = love.keyboard
 
 -- Globals
 local Debug = true
@@ -41,7 +42,20 @@ end
 
 function Game:update(dt)
     self.gameTime = self.gameTime + dt
-    self.ship:rotate(0.1)
+    if key.isDown('z') then self.ship:rotate(-0.1) end
+    if key.isDown('x') then self.ship:rotate( 0.1) end
+    if key.isDown('k') then
+        -- thrust
+    end
+    if key.isDown('m') then
+        -- retro
+    end
+    if key.isDown('l') then
+        -- shoot
+    end
+    if key.isDown('space') then
+        -- brake
+    end
 end
 
 function Game:draw()
@@ -53,7 +67,6 @@ function Game:draw()
         local x1,y1, x2,y2 = self.ship:bbox()
         gfx.setColor(255,0,0)
         gfx.rectangle('line', x1,y1, x2-x1,y2-y1)
-        print(x1,y1, x2-x1,y2-y1)
     end
 end
 
