@@ -18,6 +18,7 @@ local Debug = true
 function Menu:update(dt) --[[ intentionally blank --]] end
 
 function Menu:draw()
+    gfx.setColor(255,255,255)
     gfx.print('Press <space> to start', 10, 10)
     gfx.print('Press <escape> to quit', 10, 580)
 end
@@ -31,7 +32,6 @@ end
 
 function Game:init()
     self.collider = HC.new(150)
-
     self.ship = self.collider:rectangle(100,100,20,10)
 end
 
@@ -42,17 +42,19 @@ end
 function Game:update(dt)
     self.gameTime = self.gameTime + dt
     self.ship:rotate(0.1)
---    if Debug then
---        local x1,y1, x2,y2 = self.ship:bbox()
---        gfx.setColor(255,0,0)
---        gfx.rectangle('line', x1,y1, x2-x1,y2-y1)
---    end
 end
 
 function Game:draw()
-    self.ship:draw('line')
+    gfx.setColor(255,255,255)
+    self.ship:draw('fill')
     gfx.print('Playing game, for ' .. string.format('%.3f', self.gameTime) .. ' seconds...', 10, 10)
     gfx.print('Press <escape> to quit to menu', 10, 580)
+    if Debug then
+        local x1,y1, x2,y2 = self.ship:bbox()
+        gfx.setColor(255,0,0)
+        gfx.rectangle('line', x1,y1, x2-x1,y2-y1)
+        print(x1,y1, x2-x1,y2-y1)
+    end
 end
 
 function Game:keyreleased(key)
@@ -70,6 +72,7 @@ function Pause:update(dt) --[[ intentionally blank --]] end
 
 function Pause:draw()
     Game:draw()
+    gfx.setColor(255,255,255)
     gfx.print('Paused', 10, 30)
     gfx.print('Press <p> to resume', 10, 560)
 end
