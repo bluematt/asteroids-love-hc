@@ -8,4 +8,3 @@ function love.conf(t)
     t.window.height = 600
 
 end
-
