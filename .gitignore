@@ -41,3 +41,4 @@ luac.out
 
 # Projects
 .idea
+*.iml
