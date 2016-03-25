@@ -8,6 +8,10 @@ local Shapes = require 'hardoncollider.shapes'
 -- LÖVE shortcuts
 local gfx = love.graphics
 local key = love.keyboard
+local sin = math.sin
+local cos = math.cos
+local rnd = math.random
+local pi = math.pi
 
 -- Game states
 local Menu = {}
@@ -33,7 +37,7 @@ Point = Class{
 Ship = Class{
     init = function(self, position, rotation, configuration)
         self.position = position or Point(gfx.getWidth()/2, gfx.getHeight()/2)
-        self.rotation = rotation or math.pi/-2
+        self.rotation = rotation or pi/-2
         self:setConfiguration(configuration)
         self.shape = Shapes.newPolygonShape(unpack(self.vertices))
     end,
@@ -71,7 +75,7 @@ Ship.warrior = {
 function Ship:update(dt)
     if self.isTransforming and #self.tweenVertices > 0 then
         local vertices = self.tweenVertices[1]
-        self.shape = Shapes.newPolygonShape(unpack(vertices))
+        self.shape = Collider.polygon(unpack(vertices))
         table.remove(self.tweenVertices, 1)
     else
         self.isTransforming = false
@@ -91,7 +95,7 @@ function Ship:draw()
     if Debug then
         gfx.setColor(255,255,0)
         local ox,oy = self.shape:center()
-        gfx.line(ox,oy, ox+50*math.cos(self.rotation),oy+50*math.sin(self.rotation))
+        gfx.line(ox,oy, ox+50*cos(self.rotation),oy+50*sin(self.rotation))
 
         gfx.setColor(255,0,0)
         -- Bounding box
@@ -108,8 +112,8 @@ end
 function Ship:thrust(dt)
     if not self.isTransforming then
         local deltaV = Vector(
-            math.cos(self.rotation) * self.thrustPower,
-            math.sin(self.rotation) * self.thrustPower
+            cos(self.rotation) * self.thrustPower,
+            sin(self.rotation) * self.thrustPower
         )
         self.velocity = self.velocity + deltaV * dt
     end
@@ -118,8 +122,8 @@ end
 function Ship:retro(dt)
     if not self.isTransforming then
         local deltaV = Vector(
-            math.cos(self.rotation) * self.thrustPower * self.retroFactor,
-            math.sin(self.rotation) * self.thrustPower * self.retroFactor
+            cos(self.rotation) * self.thrustPower * self.retroFactor,
+            sin(self.rotation) * self.thrustPower * self.retroFactor
         )
         self.velocity = self.velocity + deltaV * dt
     end
@@ -148,7 +152,7 @@ function Ship:shoot(dt)
     local bullet = nil
     if not self.isTransforming then
         if self.weaponTimer < 0 then
-            local bulletPosition = Point(self.position.x + 20 * math.cos(self.rotation), self.position.y + 20 * math.sin(self.rotation))
+            local bulletPosition = Point(self.position.x + 20 * cos(self.rotation), self.position.y + 20 * sin(self.rotation))
             bullet = Bullet(bulletPosition, self.rotation, self.weaponPower)
             self.weaponTimer = self.weaponTimerDelay
         end
@@ -190,7 +194,7 @@ Bullet = Class{
     init = function(self, position, rotation, power)
         self.position = position
         self.rotation = rotation
-        self.shape = Shapes.newCircleShape(self.position.x, self.position.y, 1)
+        self.shape = Collider:circle(self.position.x, self.position.y, 1)
         self.power = power
     end,
     speed = 5,
@@ -199,8 +203,8 @@ Bullet = Class{
 
 function Bullet:update(dt)
     self.velocity = Vector(
-        self.speed * math.cos(self.rotation),
-        self.speed * math.sin(self.rotation)
+        self.speed * cos(self.rotation),
+        self.speed * sin(self.rotation)
     )
     self.lifeTimer = self.lifeTimer - dt
     self.position.x = self.position.x + self.velocity.x
@@ -241,6 +245,63 @@ end
 
 -- ----------------------------------------------------------------------------
 
+Asteroid = Class{
+    init = function(self, position, speed)
+        self.position = position or Point(gfx.getWidth()/2, gfx.getHeight()/2)
+        self.direction = rnd() * 2 * pi
+        self.rotation = rnd() * 2 - 1
+        self.speed = speed
+        self.velocity = Vector(
+            self.speed * cos(self.direction),
+            self.speed * sin(self.direction)
+        )
+        self.vertices = self:generateVertices()
+        self.shape = Collider:polygon(unpack(self.vertices))
+    end,
+    life = 20 + rnd(10)
+}
+
+function Asteroid:update(dt)
+    self.shape:rotate(self.rotation * dt)
+    self.position.x = self.position.x + self.velocity.x
+    self.position.y = self.position.y + self.velocity.y
+    self:updatePosition()
+    self.shape:moveTo(self.position.x, self.position.y)
+end
+
+function Asteroid:draw()
+    gfx.reset()
+    self.shape:draw('line')
+end
+
+function Asteroid:updatePosition()
+    if (self.position.x > gfx.getWidth()) then
+        self.position.x = self.position.x - gfx.getWidth()
+    end
+    if (self.position.x < 0) then
+        self.position.x = gfx.getWidth() - self.position.x
+    end
+    if (self.position.y > gfx.getHeight()) then
+        self.position.y = self.position.y - gfx.getHeight()
+    end
+    if (self.position.y < 0) then
+        self.position.y = gfx.getHeight() - self.position.y
+    end
+end
+
+function Asteroid.generateVertices()
+    local vertexCount = 8 + rnd(6)
+    local vertices = {}
+    for i = 1, vertexCount do
+        local r = 30 + rnd(10)
+        table.insert(vertices, r * cos(2 * pi * (i-1)/vertexCount))
+        table.insert(vertices, r * sin(2 * pi * (i-1)/vertexCount))
+    end
+    return vertices
+end
+
+-- ----------------------------------------------------------------------------
+
 function Menu:update(dt) --[[ intentionally blank --]] end
 
 function Menu:draw()
@@ -258,8 +319,12 @@ end
 
 function Game:init()
     local startPosition = Point(gfx.getWidth()/2, gfx.getHeight()/2) -- centre of the screen
-    self.ship = Ship(startPosition, math.pi/-2, Ship.adventurer) -- rotate 90° CCW
+    self.ship = Ship(startPosition, pi/-2, Ship.adventurer) -- rotate 90° CCW
     self.bullets = {}
+    self.asteroids = {}
+    for i = 1, 10 do
+        table.insert(self.asteroids, Asteroid(Point(400,300), rnd()+0.25))
+    end
 end
 
 function Game:enter()
@@ -284,7 +349,18 @@ function Game:update(dt)
         -- ship:brake(dt)
     end
 
+    for shape, delta in pairs(Collider:collisions(self.ship.shape)) do
+        -- do something with collisions.
+    end
+
     self.ship:update(dt)
+    for k, asteroid in pairs(self.asteroids) do
+        asteroid:update(dt)
+        if asteroid.life < 0 then
+            table.remove(self.asteroids, k)
+        end
+    end
+
     for k, bullet in pairs(self.bullets) do
         bullet:update(dt)
         if (bullet.lifeTimer < 0) then
@@ -294,10 +370,13 @@ function Game:update(dt)
 end
 
 function Game:draw()
-    self.ship:draw()
+    for i = 1, #self.asteroids do
+        self.asteroids[i]:draw()
+    end
     for i = 1, #self.bullets do
         self.bullets[i]:draw()
     end
+    self.ship:draw()
     gfx.reset()
     gfx.print('Playing game, for ' .. string.format('%.3f', self.gameTime) .. ' seconds...', 10, 10)
     gfx.print('Press <escape> to quit to menu', 10, 580)
