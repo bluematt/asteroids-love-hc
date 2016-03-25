@@ -323,7 +323,7 @@ function Game:init()
     self.bullets = {}
     self.asteroids = {}
     for i = 1, 10 do
-        table.insert(self.asteroids, Asteroid(Point(400,300), rnd()+0.25))
+        table.insert(self.asteroids, Asteroid(Point(rnd(0,1) * gfx.getWidth(), rnd(0,1) * gfx.getHeight()), rnd()+0.25))
     end
 end
 
@@ -354,16 +354,21 @@ function Game:update(dt)
     end
 
     self.ship:update(dt)
+
     for k, asteroid in pairs(self.asteroids) do
         asteroid:update(dt)
-        if asteroid.life < 0 then
+        if (asteroid.shape:collidesWith(self.ship.shape)) then
+            asteroid.life = 0
+            print('boom!')
+        end
+        if asteroid.life <= 0 then
             table.remove(self.asteroids, k)
         end
     end
 
     for k, bullet in pairs(self.bullets) do
         bullet:update(dt)
-        if (bullet.lifeTimer < 0) then
+        if (bullet.lifeTimer <= 0) then
             table.remove(self.bullets, k)
         end
     end
