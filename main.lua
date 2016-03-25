@@ -21,6 +21,8 @@ local Pause = {}
 -- Globals
 local Debug = true
 local Collider = HC.new(150)
+local W = gfx.getWidth()
+local H = gfx.getHeight()
 
 -- ----------------------------------------------------------------------------
 
@@ -36,7 +38,7 @@ Point = Class{
 
 Ship = Class{
     init = function(self, position, rotation, configuration)
-        self.position = position or Point(gfx.getWidth()/2, gfx.getHeight()/2)
+        self.position = position or Point(W/2, H/2)
         self.rotation = rotation or pi/-2
         self:setConfiguration(configuration)
         self.shape = Collider:polygon(unpack(self.vertices))
@@ -134,17 +136,17 @@ function Ship:rotate(dt, theta)
 end
 
 function Ship:updatePosition()
-    if (self.position.x > gfx.getWidth()) then
-        self.position.x = self.position.x - gfx.getWidth()
+    if (self.position.x > W) then
+        self.position.x = self.position.x - W
     end
     if (self.position.x < 0) then
-        self.position.x = gfx.getWidth() - self.position.x
+        self.position.x = W - self.position.x
     end
-    if (self.position.y > gfx.getHeight()) then
-        self.position.y = self.position.y - gfx.getHeight()
+    if (self.position.y > H) then
+        self.position.y = self.position.y - H
     end
     if (self.position.y < 0) then
-        self.position.y = gfx.getHeight() - self.position.y
+        self.position.y = H - self.position.y
     end
 end
 
@@ -229,17 +231,17 @@ function Bullet:draw()
 end
 
 function Bullet:updatePosition()
-    if (self.position.x > gfx.getWidth()) then
-        self.position.x = self.position.x - gfx.getWidth()
+    if (self.position.x > W) then
+        self.position.x = self.position.x - W
     end
     if (self.position.x < 0) then
-        self.position.x = gfx.getWidth() - self.position.x
+        self.position.x = W - self.position.x
     end
-    if (self.position.y > gfx.getHeight()) then
-        self.position.y = self.position.y - gfx.getHeight()
+    if (self.position.y > H) then
+        self.position.y = self.position.y - H
     end
     if (self.position.y < 0) then
-        self.position.y = gfx.getHeight() - self.position.y
+        self.position.y = H - self.position.y
     end
 end
 
@@ -247,7 +249,7 @@ end
 
 Asteroid = Class{
     init = function(self, position, speed)
-        self.position = position or Point(gfx.getWidth()/2, gfx.getHeight()/2)
+        self.position = position or Point(W/2, H/2)
         self.direction = rnd() * 2 * pi
         self.rotation = rnd() * 2 - 1
         self.speed = speed
@@ -275,17 +277,17 @@ function Asteroid:draw()
 end
 
 function Asteroid:updatePosition()
-    if (self.position.x > gfx.getWidth()) then
-        self.position.x = self.position.x - gfx.getWidth()
+    if (self.position.x > W) then
+        self.position.x = self.position.x - W
     end
     if (self.position.x < 0) then
-        self.position.x = gfx.getWidth() - self.position.x
+        self.position.x = W - self.position.x
     end
-    if (self.position.y > gfx.getHeight()) then
-        self.position.y = self.position.y - gfx.getHeight()
+    if (self.position.y > H) then
+        self.position.y = self.position.y - H
     end
     if (self.position.y < 0) then
-        self.position.y = gfx.getHeight() - self.position.y
+        self.position.y = H - self.position.y
     end
 end
 
@@ -318,12 +320,12 @@ end
 -- ----------------------------------------------------------------------------
 
 function Game:init()
-    local startPosition = Point(gfx.getWidth()/2, gfx.getHeight()/2) -- centre of the screen
+    local startPosition = Point(W/2, H/2) -- centre of the screen
     self.ship = Ship(startPosition, pi/-2, Ship.adventurer) -- rotate 90° CCW
     self.bullets = {}
     self.asteroids = {}
     for i = 1, 10 do
-        table.insert(self.asteroids, Asteroid(Point(rnd(0,1) * gfx.getWidth(), rnd(0,1) * gfx.getHeight()), rnd()+0.25))
+        table.insert(self.asteroids, Asteroid(Point(rnd(0,1) * W, rnd(0,1) * H), rnd()+0.25))
     end
 end
 
