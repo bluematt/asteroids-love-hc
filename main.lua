@@ -39,7 +39,7 @@ Ship = Class{
         self.position = position or Point(gfx.getWidth()/2, gfx.getHeight()/2)
         self.rotation = rotation or pi/-2
         self:setConfiguration(configuration)
-        self.shape = Shapes.newPolygonShape(unpack(self.vertices))
+        self.shape = Collider:polygon(unpack(self.vertices))
     end,
     velocity = Vector(),
     tweenVertices = {},
@@ -75,7 +75,7 @@ Ship.warrior = {
 function Ship:update(dt)
     if self.isTransforming and #self.tweenVertices > 0 then
         local vertices = self.tweenVertices[1]
-        self.shape = Collider.polygon(unpack(vertices))
+        self.shape = Collider:polygon(unpack(vertices))
         table.remove(self.tweenVertices, 1)
     else
         self.isTransforming = false
