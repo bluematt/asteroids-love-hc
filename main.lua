@@ -113,20 +113,19 @@ end
 
 function Ship:thrust(dt)
     if not self.isTransforming then
-        local deltaV = Vector(
-            cos(self.rotation) * self.thrustPower,
-            sin(self.rotation) * self.thrustPower
-        )
+        local r = self.rotation
+        local p = self.thrustPower
+        local deltaV = Vector(p*cos(r), p*sin(r))
         self.velocity = self.velocity + deltaV * dt
     end
 end
 
 function Ship:retro(dt)
     if not self.isTransforming then
-        local deltaV = Vector(
-            cos(self.rotation) * self.thrustPower * self.retroFactor,
-            sin(self.rotation) * self.thrustPower * self.retroFactor
-        )
+        local r = self.rotation
+        local p = self.thrustPower
+        local rf = self.retroFactor
+        local deltaV = Vector(p*cos(r)*rf, p*sin(r)*rf)
         self.velocity = self.velocity + deltaV * dt
     end
 end
@@ -136,18 +135,11 @@ function Ship:rotate(dt, theta)
 end
 
 function Ship:updatePosition()
-    if (self.position.x > W) then
-        self.position.x = self.position.x - W
-    end
-    if (self.position.x < 0) then
-        self.position.x = W - self.position.x
-    end
-    if (self.position.y > H) then
-        self.position.y = self.position.y - H
-    end
-    if (self.position.y < 0) then
-        self.position.y = H - self.position.y
-    end
+    local p = self.position
+    if (p.x > W) then p.x = p.x - W end
+    if (p.x < 0) then p.x = W - p.x end
+    if (p.y > H) then p.y = p.y - H end
+    if (p.y < 0) then p.y = H - p.y end
 end
 
 function Ship:shoot(dt)
@@ -231,18 +223,11 @@ function Bullet:draw()
 end
 
 function Bullet:updatePosition()
-    if (self.position.x > W) then
-        self.position.x = self.position.x - W
-    end
-    if (self.position.x < 0) then
-        self.position.x = W - self.position.x
-    end
-    if (self.position.y > H) then
-        self.position.y = self.position.y - H
-    end
-    if (self.position.y < 0) then
-        self.position.y = H - self.position.y
-    end
+    local p = self.position
+    if (p.x > W) then p.x = p.x - W end
+    if (p.x < 0) then p.x = W - p.x end
+    if (p.y > H) then p.y = p.y - H end
+    if (p.y < 0) then p.y = H - p.y end
 end
 
 -- ----------------------------------------------------------------------------
@@ -277,18 +262,11 @@ function Asteroid:draw()
 end
 
 function Asteroid:updatePosition()
-    if (self.position.x > W) then
-        self.position.x = self.position.x - W
-    end
-    if (self.position.x < 0) then
-        self.position.x = W - self.position.x
-    end
-    if (self.position.y > H) then
-        self.position.y = self.position.y - H
-    end
-    if (self.position.y < 0) then
-        self.position.y = H - self.position.y
-    end
+    local p = self.position
+    if (p.x > W) then p.x = p.x - W end
+    if (p.x < 0) then p.x = W - p.x end
+    if (p.y > H) then p.y = p.y - H end
+    if (p.y < 0) then p.y = H - p.y end
 end
 
 function Asteroid.generateVertices()
@@ -361,7 +339,7 @@ function Game:update(dt)
         asteroid:update(dt)
         if (asteroid.shape:collidesWith(self.ship.shape)) then
             asteroid.life = 0
-            print('boom!')
+            -- print('boom!')
         end
         if asteroid.life <= 0 then
             table.remove(self.asteroids, k)
