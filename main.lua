@@ -377,10 +377,17 @@ function Game:update(dt)
             if shape then
                 if shape.parent.type == 'Bullet' then
                     local p = shape.parent.power
-                    -- asteroid loses some life, depending on the power of the bullet
+                    -- asteroid loses some life, depending on the power of the
+                    -- bullet
                     asteroid.life = asteroid.life - p * dt
                     -- alter the course of the asteroid, but just a bit
-                    asteroid.velocity = Vector(asteroid.velocity.x + (delta.x * dt * p/50), asteroid.velocity.y + (delta.y * dt * p/50))
+                    -- @TODO change this so that it's not just the velocity, but
+                    -- the rotational angle (in proportion to the angle of
+                    -- incidence)
+                    asteroid.velocity = Vector(
+                        asteroid.velocity.x + (delta.x * dt * p/50),
+                        asteroid.velocity.y + (delta.y * dt * p/50)
+                    )
                     shape.parent:die()
                 end
             end
