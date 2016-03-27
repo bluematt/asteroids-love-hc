@@ -38,11 +38,13 @@ Point = Class{
 
 Ship = Class{
     init = function(self, position, rotation, configuration)
-        self.position = position or Point(W/2, H/2)
         self.rotation = rotation or pi/-2
         self:setConfiguration(configuration)
         self.shape = Collider:polygon(unpack(self.vertices))
+        self.shape:moveTo(W/2, H/2)
+        self.shape.parent = self
     end,
+    type = 'Ship',
     velocity = Vector(),
     tweenVertices = {},
 }
@@ -84,18 +86,18 @@ Ship.warrior = {
 }
 
 function Ship:update(dt)
+    local x,y = self.shape:center()
     if self.isTransforming and #self.tweenVertices > 0 then
         local vertices = self.tweenVertices[1]
         self.shape = Collider:polygon(unpack(vertices))
+        self.shape:moveTo(x, y)
         table.remove(self.tweenVertices, 1)
     else
         self.isTransforming = false
     end
-    self.position.x = self.position.x + self.velocity.x
-    self.position.y = self.position.y + self.velocity.y
+    self.shape:move(self.velocity.x, self.velocity.y)
     self:updatePosition()
     self.shape:setRotation(self.rotation)
-    self.shape:moveTo(self.position.x, self.position.y)
     self.weaponTimer = self.weaponTimer - dt
 end
 
@@ -146,23 +148,22 @@ function Ship:rotate(dt, theta)
 end
 
 function Ship:updatePosition()
-    local p = self.position
-
-    if (p.x > W) then p.x = p.x - W end
-    if (p.x < 0) then p.x = W - p.x end
-    if (p.y > H) then p.y = p.y - H end
-    if (p.y < 0) then p.y = H - p.y end
+    local x,y = self.shape:center()
+    if (x > W) then x = x - W end
+    if (x < 0) then x = W - x end
+    if (y > H) then y = y - H end
+    if (y < 0) then y = H - y end
+    self.shape:moveTo(x,y)
 end
 
 function Ship:shoot(dt)
     local bullet = nil
     if not self.isTransforming then
         if self.weaponTimer < 0 then
-            local bulletPosition = Point(
-                self.position.x + 20 * cos(self.rotation),
-                self.position.y + 20 * sin(self.rotation)
-            )
-            bullet = Bullet(bulletPosition, self.rotation, self.weaponPower)
+            local x,y = self.shape:center()
+            local r = self.shape:rotation()
+            local bulletPosition = Point(x + 20 * cos(r), y + 20 * sin(r))
+            bullet = Bullet(bulletPosition, r, self.weaponPower)
             self.weaponTimer = self.weaponTimerDelay
         end
     end
@@ -205,27 +206,25 @@ end
 -- --------------------------------------------------------------------------
 
 Bullet = Class{
-    init = function(self, position, rotation, power)
-        self.position = position
-        self.rotation = rotation
-        self.shape    = Collider:circle(self.position.x, self.position.y, 1)
+    init = function(self, position, direction, power)
+        self.shape    = Collider:circle(position.x, position.y, 1)
+        self.shape:rotate(direction)
+--        self.direction = direction
+        self.shape.parent = self
         self.power    = power
+        self.velocity = Vector()
     end,
-    speed = 5,
-    lifeTimer = 1.5
+    type = 'Bullet',
+    speed = 500,
+    lifeTimer = 1.5,
 }
 
 function Bullet:update(dt)
-    self.velocity   = Vector(
-        self.speed * cos(self.rotation),
-        self.speed * sin(self.rotation)
-    )
+    local r = self.shape:rotation()
+    local v = self.speed
     self.lifeTimer  = self.lifeTimer - dt
-    self.position.x = self.position.x + self.velocity.x
-    self.position.y = self.position.y + self.velocity.y
-
+    self.shape:move(v * dt * cos(r), v * dt * sin(r))
     self:updatePosition()
-    self.shape:moveTo(self.position.x, self.position.y)
 end
 
 function Bullet:draw()
@@ -234,29 +233,33 @@ function Bullet:draw()
 
     if Debug then
         local ox,oy = self.shape:center()
+        local r = self.shape:rotation()
         gfx.setColor(255,0,0)
         -- Bounding box
         local bx1,by1, bx2,by2 = self.shape:bbox()
         gfx.rectangle('line', bx1,by1, bx2-bx1,by2-by1)
         -- Movement vector
-        gfx.line(ox,oy, ox+self.velocity.x*20,oy+self.velocity.y*20)
+        gfx.line(ox,oy, ox + self.speed * cos(r),oy + self.speed * sin(r))
     end
 end
 
 function Bullet:updatePosition()
-    local p = self.position
+    local x,y = self.shape:center()
+    if (x > W) then x = x - W end
+    if (x < 0) then x = W - x end
+    if (y > H) then y = y - H end
+    if (y < 0) then y = H - y end
+    self.shape:moveTo(x,y)
+end
 
-    if (p.x > W) then p.x = p.x - W end
-    if (p.x < 0) then p.x = W - p.x end
-    if (p.y > H) then p.y = p.y - H end
-    if (p.y < 0) then p.y = H - p.y end
+function Bullet:die()
+    self.lifeTimer = 0
 end
 
 -- --------------------------------------------------------------------------
 
 Asteroid = Class{
     init = function(self, position, speed)
-        self.position  = position or Point(W/2, H/2)
         self.direction = rnd() * 2 * pi
         self.rotation  = rnd() * 2 - 1
         self.speed     = speed
@@ -266,30 +269,44 @@ Asteroid = Class{
         )
         self.vertices  = self:generateVertices()
         self.shape     = Collider:polygon(unpack(self.vertices))
+        self.shape:moveTo(0,0)
+        self.shape.parent = self
     end,
-    life = 20 + rnd(10)
+    type = 'Asteroid',
+    life = 20 + rnd(10),
 }
 
 function Asteroid:update(dt)
+    self.shape:move(self.velocity.x, self.velocity.y)
     self.shape:rotate(self.rotation * dt)
-    self.position.x = self.position.x + self.velocity.x
-    self.position.y = self.position.y + self.velocity.y
     self:updatePosition()
-    self.shape:moveTo(self.position.x, self.position.y)
 end
 
 function Asteroid:draw()
     gfx.reset()
     self.shape:draw('line')
+
+    if Debug then
+        local ox,oy = self.shape:center()
+        local r = self.shape:rotation()
+        gfx.setColor(255,0,0)
+        -- Bounding box
+        local bx1,by1, bx2,by2 = self.shape:bbox()
+        gfx.rectangle('line', bx1,by1, bx2-bx1,by2-by1)
+        -- Movement vector
+        gfx.line(ox,oy, ox + self.velocity.x,oy + self.velocity.y)
+        -- Life
+        gfx.print(self.life, ox,oy)
+    end
 end
 
 function Asteroid:updatePosition()
-    local p = self.position
-    
-    if (p.x > W) then p.x = p.x - W end
-    if (p.x < 0) then p.x = W - p.x end
-    if (p.y > H) then p.y = p.y - H end
-    if (p.y < 0) then p.y = H - p.y end
+    local x,y = self.shape:center()
+    if (x > W) then x = x - W end
+    if (x < 0) then x = W - x end
+    if (y > H) then y = y - H end
+    if (y < 0) then y = H - y end
+    self.shape:moveTo(x,y)
 end
 
 function Asteroid.generateVertices()
@@ -353,28 +370,43 @@ function Game:update(dt)
         -- ship:brake(dt)
     end
 
-    for shape, delta in pairs(Collider:collisions(self.ship.shape)) do
-        -- do something with collisions.
+    self.ship:update(dt)
+
+    for k, asteroid in pairs(self.asteroids) do
+        for shape, delta in pairs(Collider:collisions(asteroid.shape)) do
+            if shape then
+                if shape.parent.type == 'Bullet' then
+                    local p = shape.parent.power
+                    -- asteroid loses some life, depending on the power of the bullet
+                    asteroid.life = asteroid.life - p * dt
+                    -- alter the course of the asteroid, but just a bit
+                    asteroid.velocity = Vector(asteroid.velocity.x + (delta.x * dt * p/50), asteroid.velocity.y + (delta.y * dt * p/50))
+                    shape.parent:die()
+                end
+            end
+        end
+        asteroid:update(dt)
+    end
+
+--    for k, asteroid in pairs(self.asteroids) do
+--        asteroid:update(dt)
+--        if (asteroid.shape:collidesWith(self.ship.shape)) then
+--            asteroid.life = 0
+--        end
+--        if asteroid.life <= 0 then
+--            table.remove(self.asteroids, k)
+--        end
+--    end
+
+    for k, bullet in pairs(self.bullets) do
+        if (bullet.lifeTimer <= 0) then
+            table.remove(self.bullets, k)
+        end
+        bullet:update(dt)
     end
 
     self.ship:update(dt)
 
-    for k, asteroid in pairs(self.asteroids) do
-        asteroid:update(dt)
-        if (asteroid.shape:collidesWith(self.ship.shape)) then
-            asteroid.life = 0
-        end
-        if asteroid.life <= 0 then
-            table.remove(self.asteroids, k)
-        end
-    end
-
-    for k, bullet in pairs(self.bullets) do
-        bullet:update(dt)
-        if (bullet.lifeTimer <= 0) then
-            table.remove(self.bullets, k)
-        end
-    end
 end
 
 function Game:draw()
