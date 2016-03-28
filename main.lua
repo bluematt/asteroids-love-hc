@@ -374,7 +374,7 @@ function Game:update(dt)
 
     for k, asteroid in pairs(self.asteroids) do
         for shape, delta in pairs(Collider:collisions(asteroid.shape)) do
-            if shape then
+            if shape and shape.parent then
                 if shape.parent.type == 'Bullet' then
                     local p = shape.parent.power
                     -- asteroid loses some life, depending on the power of the
@@ -390,9 +390,17 @@ function Game:update(dt)
                     )
                     shape.parent:die()
                 end
+                if shape.parent.type == 'Ship' then
+                    asteroid.life = asteroid.life - 10 * dt
+                    asteroid.velocity, shape.parent.velocity = shape.parent.velocity/2, asteroid.velocity*2
+                    shape.parent:update(dt)
+                end
             end
         end
         asteroid:update(dt)
+        if asteroid.life <= 0 then
+            table.remove(self.asteroids, k)
+        end
     end
 
 --    for k, asteroid in pairs(self.asteroids) do
