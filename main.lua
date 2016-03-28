@@ -5,12 +5,16 @@ local Class     = require 'hump.class'
 local Vector    = require 'hump.vector'
 local Shapes    = require 'hardoncollider.shapes'
 
+-- Random number generator
+local rng = love.math.newRandomGenerator()
+rng:setSeed(os.time())
+
 -- LÖVE shortcuts
 local gfx = love.graphics
 local key = love.keyboard
 local sin = math.sin
 local cos = math.cos
-local rnd = math.random
+local rnd = love.math.random
 local pi  = math.pi
 
 -- Game states
@@ -214,7 +218,7 @@ Bullet = Class{
         self.shape.parent = self
         self.power    = power
         self.velocity = Vector()
-        self.mass = 1 -- notional, in kg
+        self.mass = 10000 -- notional, in kg
     end,
     type = 'Bullet',
     speed = 500,
@@ -330,7 +334,10 @@ function Asteroid:die()
     if (self.scale > 1) then
         for i = 1, count do
             local x,y = self.shape:center()
-            local asteroid = Asteroid(Point(x,y), rnd()+0.25 + self.scale * 0.1, self.scale - 1)
+            local origin = Point(x + rnd(-20, 20),y+rnd(-20, 20))
+            local speed = 0.25 + (self.scale/0.7)
+            local scale = self.scale - 1
+            local asteroid = Asteroid(origin, speed, scale)
             table.insert(debris, asteroid)
         end
     end
@@ -355,17 +362,22 @@ end
 -- --------------------------------------------------------------------------
 
 function Game:init()
+    local asteroidCount = 4
     local startPos = Point(W/2, H/2) -- centre of the screen
     self.ship      = Ship(startPos, pi/-2, Ship.adventurer) -- rotate 90° CCW
     self.bullets   = {}
     self.asteroids = {}
---    for i = 1, 10 do
-        table.insert(self.asteroids, Asteroid(
-            Point(rnd(0,1) * W, rnd(0,1) * H),
-            rnd()+0.25,
-            3
-        ))
---    end
+    for i = 1, asteroidCount do
+        local direction = rnd()
+        local x,y = 0,0
+        if (direction >= 0.5) then
+            x,y = 0, (rnd() * H)
+        else
+            x,y = (rnd() * W), 0
+        end
+        print(x,y)
+        table.insert(self.asteroids, Asteroid(Point(x,y), rnd()+0.25, 3))
+    end
 end
 
 function Game:enter()
@@ -393,32 +405,38 @@ function Game:update(dt)
     for k, asteroid in pairs(self.asteroids) do
         for shape, delta in pairs(Collider:collisions(asteroid.shape)) do
             if shape and shape.parent then
+                if shape.parent.type == 'Asteroid' then
+                    other = shape.parent
+                    -- transfer momentum
+                    local combinedVector = asteroid.velocity + other.velocity
+                    local combinedMass = asteroid.mass + other.mass
+                    asteroid.velocity = combinedVector * (asteroid.mass/combinedMass)
+                    other.velocity = combinedVector * (other.mass/combinedMass)
+                end
                 if shape.parent.type == 'Bullet' then
-                    local p = shape.parent.power
+                    local bullet = shape.parent
                     -- asteroid loses some life, depending on the power of the
                     -- bullet
-                    asteroid.life = asteroid.life - p * dt
-                    -- alter the course of the asteroid, but just a bit
-                    -- @TODO change this so that it's not just the velocity, but
-                    -- the rotational angle (in proportion to the angle of
-                    -- incidence)
-                    asteroid.velocity = Vector(
-                        asteroid.velocity.x + (delta.x * dt * p/50),
-                        asteroid.velocity.y + (delta.y * dt * p/50)
-                    )
+                    asteroid.life = asteroid.life - bullet.power * dt
+                    -- transfer momentum
+                    local combinedVector = asteroid.velocity + bullet.velocity
+--                    asteroid.velocity = Vector(
+--                        asteroid.velocity.x + (delta.x * dt * p/50),
+--                        asteroid.velocity.y + (delta.y * dt * p/50)
+--                    )
+                    local combinedMass = asteroid.mass + bullet.mass
+                    asteroid.velocity = combinedVector * (asteroid.mass/combinedMass)
                     shape.parent:die()
                 end
                 if shape.parent.type == 'Ship' then
-                    -- allow asteroids and ships to 'bounce' off each other.
-                    -- @TODO change this so that it's not just the velocity, but
-                    -- the rotational angle (in proportion to the angle of
-                    -- incidence)
-                    -- @TODO make sure that, when the velocity vectors are in the
-                    -- same 'hemisphere' (π radians) that their resultant vectors
-                    -- are transferred according to a notional 'mass'.  Simple
-                    -- tranferrence doesn't quite do the job.
+                    local ship = shape.parent
                     asteroid.life = asteroid.life - 10 * dt
-                    asteroid.velocity, shape.parent.velocity = shape.parent.velocity/2, asteroid.velocity*2
+                    -- transfer momentum
+                    local combinedVector = asteroid.velocity + ship.velocity
+                    local combinedMass = asteroid.mass + ship.mass
+                    asteroid.velocity = combinedVector * (asteroid.mass/combinedMass)
+                    ship.velocity = combinedVector * (ship.mass/combinedMass)
+--                    asteroid.velocity, ship.velocity = ship.velocity/2, asteroid.velocity*2
                     shape.parent:update(dt)
                 end
             end
