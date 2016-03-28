@@ -43,6 +43,7 @@ Ship = Class{
         self.shape = Collider:polygon(unpack(self.vertices))
         self.shape:moveTo(W/2, H/2)
         self.shape.parent = self
+        self.mass = 50 * 1000 -- notional, in kg (i.e. 50 tons)
     end,
     type = 'Ship',
     velocity = Vector(),
@@ -213,6 +214,7 @@ Bullet = Class{
         self.shape.parent = self
         self.power    = power
         self.velocity = Vector()
+        self.mass = 1 -- notional, in kg
     end,
     type = 'Bullet',
     speed = 500,
@@ -259,7 +261,7 @@ end
 -- --------------------------------------------------------------------------
 
 Asteroid = Class{
-    init = function(self, position, speed)
+    init = function(self, position, speed, scale)
         self.direction = rnd() * 2 * pi
         self.rotation  = rnd() * 2 - 1
         self.speed     = speed
@@ -267,13 +269,15 @@ Asteroid = Class{
             self.speed * cos(self.direction),
             self.speed * sin(self.direction)
         )
+        self.scale = scale or 3
         self.vertices  = self:generateVertices()
         self.shape     = Collider:polygon(unpack(self.vertices))
-        self.shape:moveTo(0,0)
+        self.shape:moveTo(position.x, position.y)
         self.shape.parent = self
+        self.mass = self.scale * 100 * 1000 -- notional, in kg
+        self.life = self.scale * 5 + rnd(10)
     end,
     type = 'Asteroid',
-    life = 20 + rnd(10),
 }
 
 function Asteroid:update(dt)
@@ -309,15 +313,28 @@ function Asteroid:updatePosition()
     self.shape:moveTo(x,y)
 end
 
-function Asteroid.generateVertices()
-    local vertexCount = 8 + rnd(6)
+function Asteroid:generateVertices()
+    local vertexCount = 5 + self.scale + rnd(3)
     local vertices = {}
     for i = 1, vertexCount do
-        local r = 30 + rnd(10)
+        local r = self.scale * 10 + rnd((self.scale + 1)  * 3) - 5
         table.insert(vertices, r * cos(2 * pi * (i-1)/vertexCount))
         table.insert(vertices, r * sin(2 * pi * (i-1)/vertexCount))
     end
     return vertices
+end
+
+function Asteroid:die()
+    local debris = {}
+    local count = 3
+    if (self.scale > 1) then
+        for i = 1, count do
+            local x,y = self.shape:center()
+            local asteroid = Asteroid(Point(x,y), rnd()+0.25 + self.scale * 0.1, self.scale - 1)
+            table.insert(debris, asteroid)
+        end
+    end
+    return debris
 end
 
 -- --------------------------------------------------------------------------
@@ -342,12 +359,13 @@ function Game:init()
     self.ship      = Ship(startPos, pi/-2, Ship.adventurer) -- rotate 90° CCW
     self.bullets   = {}
     self.asteroids = {}
-    for i = 1, 10 do
+--    for i = 1, 10 do
         table.insert(self.asteroids, Asteroid(
             Point(rnd(0,1) * W, rnd(0,1) * H),
-            rnd()+0.25
+            rnd()+0.25,
+            3
         ))
-    end
+--    end
 end
 
 function Game:enter()
@@ -391,14 +409,27 @@ function Game:update(dt)
                     shape.parent:die()
                 end
                 if shape.parent.type == 'Ship' then
+                    -- allow asteroids and ships to 'bounce' off each other.
+                    -- @TODO change this so that it's not just the velocity, but
+                    -- the rotational angle (in proportion to the angle of
+                    -- incidence)
+                    -- @TODO make sure that, when the velocity vectors are in the
+                    -- same 'hemisphere' (π radians) that their resultant vectors
+                    -- are transferred according to a notional 'mass'.  Simple
+                    -- tranferrence doesn't quite do the job.
                     asteroid.life = asteroid.life - 10 * dt
                     asteroid.velocity, shape.parent.velocity = shape.parent.velocity/2, asteroid.velocity*2
                     shape.parent:update(dt)
                 end
             end
         end
+
         asteroid:update(dt)
         if asteroid.life <= 0 then
+            local debris = asteroid:die()
+            for i = 1, #debris do
+                table.insert(self.asteroids, debris[i])
+            end
             table.remove(self.asteroids, k)
         end
     end
