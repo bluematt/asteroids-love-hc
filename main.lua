@@ -21,6 +21,7 @@ local pi  = math.pi
 local Menu  = {}
 local Game  = {}
 local Pause = {}
+local GameOver = {}
 
 -- Globals
 local Debug    = true
@@ -50,6 +51,7 @@ Ship = Class{
         self.mass = 50 * 1000 -- notional, in kg (i.e. 50 tons)
         self.velocity = Vector()
         self.tweenVertices = {}
+        self.life = 10
     end,
     type = 'Ship',
 }
@@ -205,6 +207,10 @@ function Ship:setConfiguration(configuration)
     self.weaponPower      = self.configuration.weaponPower
 end
 
+function Ship:die()
+    self.life = 0
+end
+
 -- --------------------------------------------------------------------------
 
 Bullet = Class{
@@ -330,13 +336,14 @@ function Asteroid:die()
     local debris = {}
     local count = 3
     if (self.scale > 1) then
+        local r = rnd() * 2 * pi
         for i = 1, count do
             local ox,oy = self.shape:center()
-            local origin = Point(ox + 50 * cos(2 * pi * (i-1)/count),oy + 50 * sin(2 * pi * (i-1)/count))
-            local speed = 0.25 + (self.scale/0.7)
             local scale = self.scale - 1
+            local origin = Point(ox + 15 * self.scale * cos(2 * pi * (i-1)/count),oy + 15 * self.scale * sin(2 * pi * (i-1)/count))
+            local speed = 0.25 + (self.scale/0.8)
             local asteroid = Asteroid(origin, speed, scale)
-            asteroid.direction = 2 * pi * (i-1)/count
+            asteroid:updateDirection(r + 2 * pi * (i-1)/count)
             table.insert(debris, asteroid)
         end
     end
@@ -360,8 +367,8 @@ function Asteroid:transferMomentum(other)
     local otherVelocity = other.velocity
     local mass = self.mass
     local otherMass = other.mass
-    self.velocity = otherVelocity / mass
-    other.velocity = velocity / otherMass
+    self.velocity = otherVelocity -- / mass
+    other.velocity = velocity -- / otherMass
     return other
 end
 
@@ -424,7 +431,7 @@ end
 function Game:draw()
     for i = 1, #self.asteroids do self.asteroids[i]:draw() end
     for i = 1, #self.bullets   do self.bullets[i]:draw()   end
-    self.ship:draw()
+    if self.ship then self.ship:draw() end
 
     gfx.reset()
     gfx.print('Playing game, for ' .. string.format('%.3f', self.gameTime)
@@ -433,48 +440,50 @@ function Game:draw()
 end
 
 function Game:updateShip(dt)
-    self.ship:update(dt)
+    if self.ship then
+        self.ship:update(dt)
+        if (self.ship.life <= 0) then
+            self.ship = nil
+            return Gamestate.push(GameOver)
+        end
+    end
 end
 
 function Game:updateAsteroids(dt)
     for k, asteroid in pairs(self.asteroids) do
         for shape, delta in pairs(Collider:collisions(asteroid.shape)) do
             if shape and shape.parent then
-                if shape.parent.type == 'Asteroid' then
-                    local other = shape.parent
-                    -- transfer momentum
-                    other = asteroid:transferMomentum(other)
---                    asteroid.velocity, other.velocity = other.velocity, asteroid.velocity
---                    local combinedVector = asteroid.velocity + other.velocity
---                    local combinedMass = asteroid.mass + other.mass
---                    asteroid.velocity = combinedVector * (asteroid.mass/combinedMass)
---                    other.velocity = (combinedVector * (other.mass/combinedMass)) * -1
-                end
+--                if shape.parent.type == 'Asteroid' then
+--                    local other = shape.parent
+--                    -- transfer momentum
+--                    other = asteroid:transferMomentum(other)
+--                end
                 if shape.parent.type == 'Bullet' then
                     local bullet = shape.parent
                     -- asteroid loses some life, depending on the power of the
                     -- bullet
                     asteroid.life = asteroid.life - bullet.power * dt
                     -- transfer momentum
-                    local combinedVector = asteroid.velocity + bullet.velocity
+--                    local combinedVector = asteroid.velocity + bullet.velocity
                     --                    asteroid.velocity = Vector(
                     --                        asteroid.velocity.x + (delta.x * dt * p/50),
                     --                        asteroid.velocity.y + (delta.y * dt * p/50)
                     --                    )
-                    local combinedMass = asteroid.mass + bullet.mass
-                    asteroid.velocity = combinedVector * (asteroid.mass/combinedMass)
-                    shape.parent:die()
+--                    local combinedMass = asteroid.mass + bullet.mass
+--                    asteroid.velocity = combinedVector -- * (combinedMass/asteroid.mass)
+                    bullet:die()
                 end
                 if shape.parent.type == 'Ship' then
                     local ship = shape.parent
                     asteroid.life = asteroid.life - 10 * dt
+                    ship:die()
                     -- transfer momentum
-                    local combinedVector = asteroid.velocity + ship.velocity
-                    local combinedMass = asteroid.mass + ship.mass
-                    asteroid.velocity = combinedVector * (asteroid.mass/combinedMass)
-                    ship.velocity = combinedVector * (ship.mass/combinedMass)
-                    --                    asteroid.velocity, ship.velocity = ship.velocity/2, asteroid.velocity*2
-                    shape.parent:update(dt)
+--                    local combinedVector = asteroid.velocity + ship.velocity
+--                    local combinedMass = asteroid.mass + ship.mass
+--                    asteroid.velocity = combinedVector * (asteroid.mass/combinedMass)
+--                    ship.velocity = combinedVector * (ship.mass/combinedMass)
+--                    --                    asteroid.velocity, ship.velocity = ship.velocity/2, asteroid.velocity*2
+--                    shape.parent:update(dt)
                 end
             end
         end
@@ -536,6 +545,24 @@ end
 function Pause:keyreleased(key)
     if key == 'escape' then Gamestate.switch(Menu) end
     if key == 'p'      then return Gamestate.pop() end
+end
+
+-- --------------------------------------------------------------------------
+
+function GameOver:enter(from)
+    self.from = from
+end
+
+function GameOver:update(dt)
+    self.from:updateAsteroids(dt)
+    self.from:updateBullets(dt)
+end
+
+function GameOver:draw()
+    Game:draw()
+    gfx.reset()
+    gfx.print('G A M E   O V E R', 10, 30)
+    gfx.print('Press <space> to restart', 10, 560)
 end
 
 -- --------------------------------------------------------------------------
